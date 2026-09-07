@@ -64,9 +64,11 @@ export function decryptAuthSnapshot(snapshot:AuthSnapshot,key:Buffer,context:str
     const match=ENCRYPTED_VALUE.exec(value);
     if(!match)throw new Error('auth_snapshot_encryption_required');
     try{
-      const iv=Buffer.from(match[1],'base64');
-      const tag=Buffer.from(match[2],'base64');
-      const ciphertext=Buffer.from(match[3],'base64');
+      const [,ivBase64,tagBase64,ciphertextBase64]=match;
+      if(!ivBase64||!tagBase64||!ciphertextBase64)throw new Error('invalid_envelope');
+      const iv=Buffer.from(ivBase64,'base64');
+      const tag=Buffer.from(tagBase64,'base64');
+      const ciphertext=Buffer.from(ciphertextBase64,'base64');
       if(iv.length!==12||tag.length!==16)throw new Error('invalid_envelope');
       const decipher=createDecipheriv('aes-256-gcm',key,iv);
       decipher.setAAD(Buffer.from(`${context}:${name}`,'utf8'));
