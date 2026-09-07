@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, hkdfSync, randomBytes } from 'node:crypto';
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -38,11 +38,9 @@ export async function restoreAuthDirectory(authDir:string,snapshot:AuthSnapshot)
   for(const [name,content] of entries)await writeFile(join(authDir,name),content,{encoding:'utf8',mode:0o600});
 }
 
-export function parseAuthEncryptionKey(value:string):Buffer{
-  let key:Buffer;
-  try{key=Buffer.from(value,'base64');}catch{throw new Error('BAILEYS_AUTH_ENCRYPTION_KEY_invalid');}
-  if(key.length!==32||key.toString('base64')!==value)throw new Error('BAILEYS_AUTH_ENCRYPTION_KEY_must_be_32_bytes_base64');
-  return key;
+export function deriveAuthEncryptionKey(workerToken:string):Buffer{
+  if(workerToken.trim().length<24)throw new Error('WHATSAPP_WORKER_TOKEN_too_short_for_auth_kdf');
+  return Buffer.from(hkdfSync('sha256',Buffer.from(workerToken,'utf8'),Buffer.alloc(0),Buffer.from('nora:baileys-auth:v1','utf8'),32));
 }
 
 export function encryptAuthSnapshot(snapshot:AuthSnapshot,key:Buffer,context:string):AuthSnapshot{
