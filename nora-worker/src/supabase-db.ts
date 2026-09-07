@@ -18,6 +18,7 @@ type ExtendedWorkerDatabase = WorkerDatabase & {
 };
 
 export function createWorkerDatabase(url: string, workerToken: string): ExtendedWorkerDatabase { return new GatewayWorkerDatabase(url, workerToken); }
+
 class GatewayWorkerDatabase implements ExtendedWorkerDatabase {
   private readonly endpoint: string;
   constructor(url:string, private readonly workerToken:string) { this.endpoint = `${url.replace(/\/+$/, '')}/functions/v1/whatsapp-worker-gateway`; }
