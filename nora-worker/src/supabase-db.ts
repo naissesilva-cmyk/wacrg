@@ -32,12 +32,20 @@ class GatewayWorkerDatabase implements ExtendedWorkerDatabase {
     const data=await this.call<DispatchAuthorization[]>('recheck',tenantId,{message_id:messageId});
     return first<DispatchAuthorization>(data);
   }
+  async recordProviderAck(tenantId:string,messageId:string,providerMessageId:string):Promise<void>{
+    const data=await this.call<boolean>('record_ack',tenantId,{message_id:messageId,provider_message_id:providerMessageId,ack_type:'accepted',source:'baileys'});
+    if(data!==true)throw new Error('provider_ack_persistence_rejected');
+  }
   async complete(tenantId:string,messageId:string,providerMessageId:string):Promise<void>{
     const data=await this.call<boolean>('complete',tenantId,{message_id:messageId,provider_message_id:providerMessageId});
     if(data!==true)throw new Error('dispatch_completion_rejected');
   }
   async fail(tenantId:string,messageId:string,detail:string,retrySafe:boolean,maxAttempts:number,baseBackoffSeconds:number):Promise<void>{
     await this.call('fail',tenantId,{message_id:messageId,error:detail,retry_safe:retrySafe,max_attempts:maxAttempts,base_backoff_seconds:baseBackoffSeconds});
+  }
+  async quarantine(tenantId:string,messageId:string,reason:string):Promise<void>{
+    const data=await this.call<boolean>('quarantine',tenantId,{message_id:messageId,reason});
+    if(data!==true)throw new Error('dispatch_quarantine_rejected');
   }
   async recoverStale(tenantId:string,staleAfterSeconds:number):Promise<number>{
     const data=await this.call<number>('recover_stale',tenantId,{stale_after_seconds:staleAfterSeconds});
