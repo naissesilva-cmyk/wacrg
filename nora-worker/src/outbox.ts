@@ -23,8 +23,10 @@ export type ClaimOptions = {
 export interface WorkerDatabase {
   claimNext(tenantId: string, options: ClaimOptions): Promise<OutboxMessage | null>;
   recheck(tenantId: string, messageId: string): Promise<DispatchAuthorization>;
+  recordProviderAck(tenantId: string, messageId: string, providerMessageId: string): Promise<void>;
   complete(tenantId: string, messageId: string, providerMessageId: string): Promise<void>;
   fail(tenantId: string, messageId: string, error: string, retrySafe: boolean, maxAttempts: number, baseBackoffSeconds: number): Promise<void>;
+  quarantine(tenantId: string, messageId: string, reason: string): Promise<void>;
   recoverStale(tenantId: string, staleAfterSeconds: number): Promise<number>;
   registerOptOut(tenantId: string, phoneE164: string): Promise<number>;
   renewLease(tenantId: string, instanceId: string, leaseSeconds: number): Promise<boolean>;
@@ -72,9 +74,19 @@ export async function processNextMessage(
     provider = await sender.send(message.phone_e164, message.message_body, message.id);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    const retrySafe = error instanceof DispatchError && error.retrySafe;
-    await db.fail(options.tenantId, message.id, detail, retrySafe, options.maxAttempts, options.baseBackoffSeconds);
-    return retrySafe ? 'retry' : 'failed';
+    if (error instanceof DispatchError) {
+      await db.fail(options.tenantId, message.id, detail, error.retrySafe, options.maxAttempts, options.baseBackoffSeconds);
+      return error.retrySafe ? 'retry' : 'failed';
+    }
+    await db.quarantine(options.tenantId, message.id, 'provider_outcome_unknown');
+    return 'uncertain';
+  }
+
+  try {
+    await db.recordProviderAck(options.tenantId, message.id, provider.id);
+  } catch {
+    // The provider already acknowledged the send. Do not retry because ACK persistence failed.
+    // Completion may still succeed; otherwise the item remains uncertain for human recovery.
   }
 
   try {
