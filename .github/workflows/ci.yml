@@ -3,6 +3,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - "spec/**"
@@ -53,7 +54,6 @@ jobs:
   nora-whatsapp-worker:
     name: Validate Nora WhatsApp worker
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('nora-worker/package.json') != '' }}
     defaults:
       run:
         working-directory: nora-worker
