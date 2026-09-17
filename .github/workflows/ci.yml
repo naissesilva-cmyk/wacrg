@@ -1,7 +1,4 @@
-# CI: validate the YAML corpus and ensure generated docs/coverage are up to date.
-# Runs the schema + referential-integrity validator, then regenerates docs and
-# coverage and fails if anything is stale (i.e. the committed generated files
-# do not match what the generator/coverage scripts would produce right now).
+# CI: validate the YAML corpus and the Nora WhatsApp worker.
 
 name: CI
 
@@ -12,6 +9,8 @@ on:
       - "corpus/**"
       - "scripts/**"
       - "package.json"
+      - "nora-worker/**"
+      - ".github/workflows/ci.yml"
   push:
     branches: [main]
     paths:
@@ -19,12 +18,12 @@ on:
       - "corpus/**"
       - "scripts/**"
       - "package.json"
+      - "nora-worker/**"
+      - ".github/workflows/ci.yml"
 
-# Least-privilege: CI only needs to read the repository.
 permissions:
   contents: read
 
-# Cancel superseded runs for the same ref to save CI minutes.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -42,15 +41,33 @@ jobs:
         with:
           node-version: 20
 
-      # No lockfile is committed yet, so use a plain install.
       - name: Install dependencies
         run: npm i
 
       - name: Validate corpus (schemas + referential integrity)
         run: npm run validate
 
-      # `check` runs the full build (validate + generate + coverage) and then
-      # `git diff --exit-code` over the generated outputs; it fails if the
-      # committed docs/coverage are out of date.
       - name: Check generated docs and coverage are current
         run: npm run check
+
+  nora-whatsapp-worker:
+    name: Validate Nora WhatsApp worker
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('nora-worker/package.json') != '' }}
+    defaults:
+      run:
+        working-directory: nora-worker
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install worker dependencies
+        run: npm install
+
+      - name: Typecheck worker
+        run: npx tsc --noEmit --module NodeNext --moduleResolution NodeNext --target ES2022 --skipLibCheck src/index.ts
