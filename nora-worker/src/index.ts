@@ -14,7 +14,7 @@ const sender = new BaileysSender(config.authDir,async(phoneE164)=>{const affecte
 let stopping=false,lastLeaseRenewalAt=0,lastAuthPersistAt=0,lastAuthChecksum:string|null=null;
 
 const healthServer=createServer((request,response)=>{const leaseFresh=lastLeaseRenewalAt>0&&Date.now()-lastLeaseRenewalAt<config.leaseSeconds*1000;const connected=sender.isReady();const path=request.url?.split('?')[0]??'/';if(path!=='/healthz'&&path!=='/readyz'){response.writeHead(404,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});response.end(JSON.stringify({error:'not_found'}));return;}const ready=!stopping&&leaseFresh&&connected;const healthy=!stopping&&leaseFresh;const ok=path==='/readyz'?ready:healthy;response.writeHead(ok?200:503,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});response.end(JSON.stringify({status:ok?'ok':'not_ready',lease_fresh:leaseFresh,whatsapp_connected:connected,stopping}));});
-healthServer.listen(config.healthPort,'0.0.0.0',()=>console.log('[worker] health endpoint ativo',{port:config.healthPort}));
+healthServer.listen(config.healthPort,'127.0.0.1',()=>console.log('[worker] health endpoint ativo',{port:config.healthPort}));
 
 async function main():Promise<void>{
  await acquireInitialLease();if(stopping)return;await db.recordPairingState(config.tenantId,config.instanceId,'starting');
