@@ -13,7 +13,7 @@ on:
       - "nora-worker/**"
       - ".github/workflows/ci.yml"
   push:
-    branches: [main]
+    branches: [main, nora-render-worker]
     paths:
       - "spec/**"
       - "corpus/**"
